@@ -1,20 +1,55 @@
 import { NextRequest } from "next/server";
+import { google } from "googleapis";
+
+const SHEET_ID = process.env.GOOGLE_SHEET_ID || "1ULG09BzPZ4ydeGUhf66214Yx3R-LshULc0n1V-ZXHps";
+const SHEET_TAB = "Pedidos";
+
+async function appendToSheet(row: (string | number)[]) {
+  const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  if (!keyJson) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON not set");
+
+  const credentials = JSON.parse(keyJson);
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  });
+
+  const sheets = google.sheets({ version: "v4", auth });
+
+  // Ensure header row exists on first run
+  const meta = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${SHEET_TAB}!A1:A1`,
+  });
+
+  if (!meta.data.values?.length) {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID,
+      range: `${SHEET_TAB}!A1`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: {
+        values: [[
+          "N° Pedido", "Fecha", "Cliente", "Email", "Teléfono",
+          "Ciudad", "Dirección", "Productos", "Cant. Items",
+          "Total USD", "Forma de Pago", "Estado", "Notas",
+        ]],
+      },
+    });
+  }
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID,
+    range: `${SHEET_TAB}!A1`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [row] },
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const { orderId, fecha, cliente, items, subtotal, formaPago, estado } = body;
 
-    const {
-      orderId,
-      fecha,
-      cliente,
-      items,
-      subtotal,
-      formaPago,
-      estado,
-    } = body;
-
-    // Format items as a readable string for the spreadsheet
     const itemsText = items
       .map(
         (i: { nombre: string; isbn: string; cantidad: number; subtotal: number }) =>
@@ -22,7 +57,7 @@ export async function POST(request: NextRequest) {
       )
       .join(" | ");
 
-    const rowData = [
+    const rowData: (string | number)[] = [
       orderId,
       new Date(fecha).toLocaleString("es-VE", { timeZone: "America/Caracas" }),
       `${cliente.nombre} ${cliente.apellido}`,
@@ -38,33 +73,18 @@ export async function POST(request: NextRequest) {
       cliente.mensaje || "",
     ];
 
-    // Send to Google Apps Script web app
-    const scriptUrl = process.env.GOOGLE_SCRIPT_URL;
-
-    if (scriptUrl) {
-      const gsRes = await fetch(scriptUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ row: rowData, orderId, cliente, items, subtotal, formaPago }),
-      });
-
-      if (!gsRes.ok) {
-        console.error("Google Sheets error:", await gsRes.text());
-      }
+    if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+      await appendToSheet(rowData);
     } else {
-      // Log to console when no script URL configured (development)
-      console.log("📦 NEW ORDER:", {
+      console.log("📦 NEW ORDER (no SA key configured):", {
         orderId,
         cliente: `${cliente.nombre} ${cliente.apellido}`,
-        email: cliente.email,
-        telefono: cliente.telefono,
         total: `$${subtotal.toFixed(2)}`,
         formaPago,
-        productos: items.length,
       });
     }
 
-    // Trigger webhook notification (email, etc.)
+    // Optional webhook notification
     const webhookUrl = process.env.WEBHOOK_NOTIFICATION_URL;
     if (webhookUrl) {
       fetch(webhookUrl, {
