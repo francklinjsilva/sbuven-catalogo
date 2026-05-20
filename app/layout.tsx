@@ -73,9 +73,10 @@ export const metadata: Metadata = {
     description:
       "Biblias, literatura cristiana e infantil con envío a todo Venezuela. " +
       "Pago Móvil, Cashea, tasa BCV. Tienda oficial de Sociedades Bíblicas (SBUVEN).",
+    // Next.js sirve la OG image automáticamente desde app/opengraph-image.tsx
     images: [
       {
-        url: `${SITE_URL}/og-image.jpg`,
+        url: `${SITE_URL}/opengraph-image`,
         width: 1200,
         height: 630,
         alt: "Catálogo SBUVEN — Biblias y Literatura Cristiana en Venezuela",
@@ -89,7 +90,7 @@ export const metadata: Metadata = {
     title: "Compra Biblias en Venezuela | Catálogo Oficial SBUVEN",
     description:
       "Biblias, literatura cristiana e infantil con envío a todo Venezuela. Pago Móvil, Cashea, tasa BCV.",
-    images: [`${SITE_URL}/og-image.jpg`],
+    images: [`${SITE_URL}/opengraph-image`],
   },
 
   // ── Verificación de propiedad (agregar IDs cuando los tengas) ────────────────
