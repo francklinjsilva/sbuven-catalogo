@@ -35,6 +35,8 @@ export interface CartItem {
 export type PaymentMethod =
   | "cashea"
   | "pago_movil"
+  | "transferencia_bs"
+  | "efectivo_bs"
   | "transferencia_usd"
   | "efectivo_usd";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -12,46 +12,70 @@ import {
   Wallet,
   Loader2,
   ShoppingBag,
+  RefreshCw,
+  TrendingUp,
 } from "lucide-react";
 import { useCart } from "./CartProvider";
 import type { CustomerInfo, PaymentMethod } from "@/lib/types";
 
 type Step = "cart-review" | "customer" | "payment" | "confirmation";
 
+// Métodos que operan en bolívares — muestran tasa BCV
+const BS_METHODS: PaymentMethod[] = [
+  "cashea",
+  "pago_movil",
+  "transferencia_bs",
+  "efectivo_bs",
+];
+
 const PAYMENT_OPTIONS: {
   id: PaymentMethod;
   label: string;
   description: string;
   icon: typeof Smartphone;
-  color: string;
+  badge?: string;
 }[] = [
   {
     id: "cashea",
     label: "Cashea",
-    description: "Paga en cuotas en bolívares con la app Cashea",
+    description: "Financiamiento en cuotas en bolívares",
     icon: Smartphone,
-    color: "blue",
+    badge: "Bs",
   },
   {
     id: "pago_movil",
-    label: "Pago Móvil Bs",
+    label: "Pago Móvil",
     description: "Transferencia interbancaria en bolívares",
     icon: Wallet,
-    color: "green",
+    badge: "Bs",
+  },
+  {
+    id: "transferencia_bs",
+    label: "Transferencia Bs",
+    description: "Transferencia bancaria en bolívares",
+    icon: TrendingUp,
+    badge: "Bs",
+  },
+  {
+    id: "efectivo_bs",
+    label: "Efectivo Bs en tienda",
+    description: "Pago presencial en bolívares en nuestra tienda",
+    icon: Wallet,
+    badge: "Bs",
   },
   {
     id: "transferencia_usd",
     label: "Transferencia USD",
     description: "Transferencia bancaria en dólares americanos",
     icon: DollarSign,
-    color: "emerald",
+    badge: "USD",
   },
   {
     id: "efectivo_usd",
     label: "Efectivo / Tarjeta USD",
-    description: "Pago presencial en efectivo o tarjeta internacional",
+    description: "Efectivo o tarjeta internacional en divisa",
     icon: CreditCard,
-    color: "amber",
+    badge: "USD",
   },
 ];
 
@@ -66,9 +90,7 @@ const PAYMENT_INSTRUCTIONS: Record<PaymentMethod, React.ReactNode> = {
         <li>Selecciona el monto y el plan de cuotas</li>
         <li>Envíanos el comprobante por WhatsApp</li>
       </ol>
-      <p className="text-xs text-blue-500 mt-2">
-        📞 Soporte: 0412-5383814 (WhatsApp)
-      </p>
+      <p className="text-xs text-blue-500 mt-2">📞 Soporte: 0412-5383814</p>
       <div className="bg-blue-100 rounded-lg p-3 mt-2">
         <p className="text-xs text-blue-600 font-medium">
           ⚠️ Comercio: [PENDIENTE — completar con ID de Cashea]
@@ -81,7 +103,7 @@ const PAYMENT_INSTRUCTIONS: Record<PaymentMethod, React.ReactNode> = {
       <p className="font-semibold text-green-800 text-sm">Datos Pago Móvil</p>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
         <dt className="text-green-600 font-medium">Banco</dt>
-        <dd className="text-green-800">[PENDIENTE — completar]</dd>
+        <dd className="text-green-800">[PENDIENTE]</dd>
         <dt className="text-green-600 font-medium">Teléfono</dt>
         <dd className="text-green-800 font-mono">[PENDIENTE]</dd>
         <dt className="text-green-600 font-medium">RIF / Cédula</dt>
@@ -90,7 +112,45 @@ const PAYMENT_INSTRUCTIONS: Record<PaymentMethod, React.ReactNode> = {
         <dd className="text-green-800">Sociedades Bíblicas</dd>
       </dl>
       <p className="text-xs text-green-600 mt-2">
-        Luego de realizar el pago, envía el comprobante por WhatsApp.
+        Envía el comprobante por WhatsApp luego del pago.
+      </p>
+    </div>
+  ),
+  transferencia_bs: (
+    <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 space-y-2">
+      <p className="font-semibold text-teal-800 text-sm">
+        Datos Transferencia en Bolívares
+      </p>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+        <dt className="text-teal-600 font-medium">Banco</dt>
+        <dd className="text-teal-800">[PENDIENTE]</dd>
+        <dt className="text-teal-600 font-medium">Cuenta</dt>
+        <dd className="text-teal-800 font-mono text-xs">[PENDIENTE]</dd>
+        <dt className="text-teal-600 font-medium">RIF</dt>
+        <dd className="text-teal-800 font-mono">[PENDIENTE]</dd>
+        <dt className="text-teal-600 font-medium">Titular</dt>
+        <dd className="text-teal-800">Sociedades Bíblicas</dd>
+      </dl>
+      <p className="text-xs text-teal-600 mt-2">
+        Envía el comprobante por WhatsApp luego de la transferencia.
+      </p>
+    </div>
+  ),
+  efectivo_bs: (
+    <div className="bg-lime-50 border border-lime-200 rounded-xl p-4 space-y-2">
+      <p className="font-semibold text-lime-800 text-sm">
+        Efectivo en Bolívares — Pago en Tienda
+      </p>
+      <p className="text-sm text-lime-700">
+        Visítanos y paga en bolívares al tipo de cambio BCV del día. El monto
+        exacto en Bs se confirma al momento del pago.
+      </p>
+      <ul className="text-sm text-lime-700 space-y-1 mt-2">
+        <li>📞 0412-5383814 (WhatsApp)</li>
+        <li>📞 0412-5383824 (WhatsApp)</li>
+      </ul>
+      <p className="text-xs text-lime-600 mt-2">
+        Contáctanos para coordinar horario y disponibilidad.
       </p>
     </div>
   ),
@@ -101,7 +161,7 @@ const PAYMENT_INSTRUCTIONS: Record<PaymentMethod, React.ReactNode> = {
       </p>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
         <dt className="text-emerald-600 font-medium">Banco</dt>
-        <dd className="text-emerald-800">[PENDIENTE — completar]</dd>
+        <dd className="text-emerald-800">[PENDIENTE]</dd>
         <dt className="text-emerald-600 font-medium">Titular</dt>
         <dd className="text-emerald-800">Sociedades Bíblicas</dd>
         <dt className="text-emerald-600 font-medium">Cuenta / IBAN</dt>
@@ -110,36 +170,152 @@ const PAYMENT_INSTRUCTIONS: Record<PaymentMethod, React.ReactNode> = {
         <dd className="text-emerald-800 font-mono">[PENDIENTE]</dd>
       </dl>
       <p className="text-xs text-emerald-600 mt-2">
-        Envía el comprobante de transferencia por WhatsApp o email.
+        Envía el comprobante por WhatsApp o email.
       </p>
     </div>
   ),
   efectivo_usd: (
     <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
       <p className="font-semibold text-amber-800 text-sm">
-        Pago Presencial / Tarjeta Internacional
+        Efectivo / Tarjeta Internacional
       </p>
       <p className="text-sm text-amber-700">
-        Puedes pagar en efectivo USD o con tarjeta internacional en nuestras
-        oficinas. Contáctanos para coordinar la entrega:
+        Pago en efectivo USD o tarjeta internacional en nuestras oficinas.
+        Contáctanos para coordinar:
       </p>
       <ul className="text-sm text-amber-700 space-y-1 mt-2">
         <li>📞 0412-5383814 (WhatsApp)</li>
         <li>📞 0412-5383824 (WhatsApp)</li>
       </ul>
-      <p className="text-xs text-amber-500 mt-2">
-        Un representante te confirmará la disponibilidad y coordinarás el pago.
-      </p>
     </div>
   ),
 };
+
+interface BCVRate {
+  tasa: number;
+  fuente: string;
+  actualizacion: string;
+}
+
+function useBCVRate() {
+  const [rate, setRate] = useState<BCVRate | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  const fetchRate = async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await fetch("/api/bcv-rate");
+      if (!res.ok) throw new Error("fetch failed");
+      const data = await res.json();
+      if (data.tasa) setRate(data as BCVRate);
+      else setError(true);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRate();
+  }, []);
+
+  return { rate, loading, error, refetch: fetchRate };
+}
+
+function formatBs(amount: number): string {
+  return amount.toLocaleString("es-VE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function BCVWidget({
+  subtotal,
+  rate,
+  loading,
+  error,
+  refetch,
+}: {
+  subtotal: number;
+  rate: BCVRate | null;
+  loading: boolean;
+  error: boolean;
+  refetch: () => void;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-sm text-yellow-700">
+        <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+        Consultando tasa BCV…
+      </div>
+    );
+  }
+  if (error || !rate) {
+    return (
+      <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl p-3">
+        <p className="text-xs text-red-600">
+          No se pudo obtener la tasa BCV. El monto en Bs se calculará al
+          confirmar el pago.
+        </p>
+        <button
+          onClick={refetch}
+          className="ml-2 shrink-0 text-red-500 hover:text-red-700"
+          aria-label="Reintentar"
+        >
+          <RefreshCw className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
+
+  const montoBS = subtotal * rate.tasa;
+  const fecha = new Date(rate.actualizacion).toLocaleString("es-VE", {
+    timeZone: "America/Caracas",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return (
+    <div className="bg-[#1e3a8a]/5 border border-[#1e3a8a]/20 rounded-xl p-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-[#1e3a8a] uppercase tracking-wider">
+            Equivalente en Bs (tasa BCV)
+          </span>
+        </div>
+        <button
+          onClick={refetch}
+          title="Actualizar tasa"
+          className="text-[#1e3a8a]/50 hover:text-[#1e3a8a] transition-colors"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <p className="text-2xl font-bold text-[#1e3a8a]">
+        Bs. {formatBs(montoBS)}
+      </p>
+      <div className="flex items-center justify-between text-xs text-gray-500">
+        <span>
+          Tasa BCV: <strong>Bs. {formatBs(rate.tasa)} / $1</strong>
+        </span>
+        <span>Actualizada: {fecha}</span>
+      </div>
+    </div>
+  );
+}
 
 function buildWhatsAppUrl(
   orderId: string,
   items: import("@/lib/types").CartItem[],
   subtotal: number,
   customer: CustomerInfo,
-  paymentMethod: PaymentMethod
+  paymentMethod: PaymentMethod,
+  bcvRate?: BCVRate | null
 ): string {
   const SEP = "━━━━━━━━━━━━━━━━━━━━";
   const fecha = new Date().toLocaleString("es-VE", {
@@ -154,6 +330,8 @@ function buildWhatsAppUrl(
   const paymentLabel =
     PAYMENT_OPTIONS.find((o) => o.id === paymentMethod)?.label ?? paymentMethod;
 
+  const isBs = BS_METHODS.includes(paymentMethod);
+
   const itemsLines = items
     .map((i) => {
       const ref = i.product.precioFinal.toFixed(2);
@@ -161,6 +339,10 @@ function buildWhatsAppUrl(
       return `• ${i.quantity}× ${i.product.nombre} — ISBN: ${sku} — $${ref}`;
     })
     .join("\n");
+
+  const totalLine = isBs && bcvRate
+    ? `💰 Total: $${subtotal.toFixed(2)} USD\n💵 Equiv. Bs.: ${formatBs(subtotal * bcvRate.tasa)} Bs\n   (Tasa BCV: ${formatBs(bcvRate.tasa)} Bs/$ del ${new Date(bcvRate.actualizacion).toLocaleDateString("es-VE", { day: "numeric", month: "short", year: "numeric" })})`
+    : `💰 Total: $${subtotal.toFixed(2)} USD`;
 
   const lines = [
     `📦 NUEVO PEDIDO — SBUV`,
@@ -170,7 +352,7 @@ function buildWhatsAppUrl(
     itemsLines,
     ``,
     SEP,
-    `💰 Total: $${subtotal.toFixed(2)} USD`,
+    totalLine,
     `🔖 N° Pedido: ${orderId}`,
     SEP,
     ``,
@@ -204,6 +386,7 @@ function generateOrderId() {
 export function CheckoutFlow() {
   const { items, subtotal, clearCart } = useCart();
   const router = useRouter();
+  const { rate: bcvRate, loading: bcvLoading, error: bcvError, refetch: bcvRefetch } = useBCVRate();
 
   const [step, setStep] = useState<Step>("cart-review");
   const [customer, setCustomer] = useState<CustomerInfo>({
@@ -222,6 +405,7 @@ export function CheckoutFlow() {
   // Snapshot para la pantalla de confirmación (el carrito ya fue limpiado)
   const [confirmedItems, setConfirmedItems] = useState(items);
   const [confirmedSubtotal, setConfirmedSubtotal] = useState(subtotal);
+  const [confirmedBcvRate, setConfirmedBcvRate] = useState<BCVRate | null>(null);
 
   const STEPS: Step[] = ["cart-review", "customer", "payment", "confirmation"];
   const stepIndex = STEPS.indexOf(step);
@@ -259,6 +443,7 @@ export function CheckoutFlow() {
       setOrderId(id);
       setConfirmedItems(items);
       setConfirmedSubtotal(subtotal);
+      setConfirmedBcvRate(bcvRate);
       clearCart();
       setStep("confirmation");
     } catch (err) {
@@ -600,10 +785,21 @@ export function CheckoutFlow() {
               </div>
             )}
 
+            {/* BCV rate widget — solo para métodos en Bs */}
+            {paymentMethod && BS_METHODS.includes(paymentMethod as PaymentMethod) && (
+              <BCVWidget
+                subtotal={subtotal}
+                rate={bcvRate}
+                loading={bcvLoading}
+                error={bcvError}
+                refetch={bcvRefetch}
+              />
+            )}
+
             {/* Order summary mini */}
             <div className="bg-white rounded-xl p-4 border border-gray-100 flex justify-between items-center">
               <span className="text-sm text-gray-600">
-                Total a pagar ({items.length}{" "}
+                Total en USD ({items.length}{" "}
                 {items.length === 1 ? "producto" : "productos"})
               </span>
               <span className="text-lg font-bold text-[#1e3a8a]">
@@ -677,11 +873,19 @@ export function CheckoutFlow() {
                   <span className="font-medium text-xs">{customer.email}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Total</span>
+                  <span className="text-gray-500">Total USD</span>
                   <span className="font-bold text-[#1e3a8a]">
-                    ${subtotal.toFixed(2)} USD
+                    ${confirmedSubtotal.toFixed(2)}
                   </span>
                 </div>
+                {confirmedBcvRate && paymentMethod && BS_METHODS.includes(paymentMethod as PaymentMethod) && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Total Bs (BCV)</span>
+                    <span className="font-bold text-[#1e3a8a]">
+                      Bs. {formatBs(confirmedSubtotal * confirmedBcvRate.tasa)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-500">Forma de pago</span>
                   <span className="font-medium capitalize">
@@ -701,7 +905,7 @@ export function CheckoutFlow() {
 
             <div className="flex flex-col sm:flex-row gap-3 max-w-sm mx-auto">
               <a
-                href={buildWhatsAppUrl(orderId, confirmedItems, confirmedSubtotal, customer, paymentMethod as PaymentMethod)}
+                href={buildWhatsAppUrl(orderId, confirmedItems, confirmedSubtotal, customer, paymentMethod as PaymentMethod, confirmedBcvRate)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 bg-green-500 hover:bg-green-400 text-white font-bold py-3 px-4 rounded-xl transition-colors text-sm text-center flex items-center justify-center gap-2"
