@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import { google } from "googleapis";
 
 const SHEET_ID = process.env.GOOGLE_SHEET_ID || "1ULG09BzPZ4ydeGUhf66214Yx3R-LshULc0n1V-ZXHps";
-const SHEET_TAB = "Pedidos";
 
 async function appendToSheet(row: (string | number)[]) {
   const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
@@ -16,22 +15,22 @@ async function appendToSheet(row: (string | number)[]) {
 
   const sheets = google.sheets({ version: "v4", auth });
 
-  // Ensure header row exists on first run
   const meta = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_TAB}!A1:A1`,
+    range: "Pedidos!A1:A1",
   });
 
   if (!meta.data.values?.length) {
     await sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
-      range: `${SHEET_TAB}!A1`,
+      range: "Pedidos!A1",
       valueInputOption: "USER_ENTERED",
       requestBody: {
         values: [[
-          "N° Pedido", "Fecha", "Cliente", "Email", "Teléfono",
-          "Ciudad", "Dirección", "Productos", "Cant. Items",
-          "Total USD", "Forma de Pago", "Estado", "Notas",
+          "N° Pedido", "Fecha", "Cliente", "Cédula/RIF", "Email", "Teléfono",
+          "Estado", "Municipio", "Dirección", "Punto de Referencia",
+          "Productos", "Cant. Items", "Total USD",
+          "Forma de Pago", "Envío", "Estado Pedido", "Notas",
         ]],
       },
     });
@@ -39,7 +38,7 @@ async function appendToSheet(row: (string | number)[]) {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_TAB}!A1`,
+    range: "Pedidos!A1",
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [row] },
   });
@@ -48,7 +47,7 @@ async function appendToSheet(row: (string | number)[]) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { orderId, fecha, cliente, items, subtotal, formaPago, estado } = body;
+    const { orderId, fecha, cliente, items, subtotal, formaPago, envio, estado } = body;
 
     const itemsText = items
       .map(
@@ -61,14 +60,18 @@ export async function POST(request: NextRequest) {
       orderId,
       new Date(fecha).toLocaleString("es-VE", { timeZone: "America/Caracas" }),
       `${cliente.nombre} ${cliente.apellido}`,
+      cliente.cedula || "",
       cliente.email,
       cliente.telefono,
-      cliente.ciudad,
+      cliente.estado || "",
+      cliente.municipio || "",
       cliente.direccion || "",
+      cliente.puntoReferencia || "",
       itemsText,
       items.length,
       `$${subtotal.toFixed(2)}`,
       formaPago,
+      envio || "",
       estado,
       cliente.mensaje || "",
     ];
@@ -76,15 +79,16 @@ export async function POST(request: NextRequest) {
     if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
       await appendToSheet(rowData);
     } else {
-      console.log("📦 NEW ORDER (no SA key configured):", {
+      console.log("📦 NEW ORDER:", {
         orderId,
         cliente: `${cliente.nombre} ${cliente.apellido}`,
+        cedula: cliente.cedula,
         total: `$${subtotal.toFixed(2)}`,
         formaPago,
+        envio,
       });
     }
 
-    // Optional webhook notification
     const webhookUrl = process.env.WEBHOOK_NOTIFICATION_URL;
     if (webhookUrl) {
       fetch(webhookUrl, {
