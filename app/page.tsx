@@ -1,8 +1,12 @@
-import { getAllProducts, getMainCategories } from "@/lib/products";
+import { getAllProductsFromSheets } from "@/lib/sheets-catalog";
+import { getMainCategories } from "@/lib/products";
 import { Catalog } from "@/components/Catalog";
 
-export default function HomePage() {
-  const products = getAllProducts();
+// Revalidate catalog every hour so changes in Google Sheets appear quickly
+export const revalidate = 3600;
+
+export default async function HomePage() {
+  const products = await getAllProductsFromSheets();
   const categories = getMainCategories();
   return <Catalog products={products} categories={categories} />;
 }
