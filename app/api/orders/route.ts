@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
       cliente.email,
       cliente.telefono,
       cliente.ciudad,
+      cliente.direccion || "",
       itemsText,
       items.length,
       `$${subtotal.toFixed(2)}`,

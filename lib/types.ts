@@ -44,6 +44,7 @@ export interface CustomerInfo {
   email: string;
   telefono: string;
   ciudad: string;
+  direccion: string;
   mensaje: string;
 }
 
