@@ -7,7 +7,9 @@ async function appendToSheet(row: (string | number)[]) {
   const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   if (!keyJson) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON not set");
 
-  const credentials = JSON.parse(keyJson);
+  // The value is base64-encoded to avoid newline issues in Vercel env vars
+  const decoded = Buffer.from(keyJson, "base64").toString("utf8");
+  const credentials = JSON.parse(decoded);
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],

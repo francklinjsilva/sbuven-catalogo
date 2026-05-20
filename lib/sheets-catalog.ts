@@ -62,7 +62,9 @@ export async function getAllProductsFromSheets(): Promise<Product[]> {
   }
 
   try {
-    const credentials = JSON.parse(SA_KEY_JSON);
+    // Value is base64-encoded to avoid newline issues in Vercel env vars
+    const decoded = Buffer.from(SA_KEY_JSON, "base64").toString("utf8");
+    const credentials = JSON.parse(decoded);
     const auth = new google.auth.GoogleAuth({
       credentials,
       scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
