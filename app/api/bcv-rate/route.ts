@@ -1,4 +1,6 @@
-export const revalidate = 1800; // cache 30 minutos en el servidor
+// No cachear en el servidor — la tasa cambia 1-2 veces al día
+// El cliente tiene su propio estado y puede refrescar manualmente
+export const revalidate = 0;
 
 interface BCVResult {
   tasa: number;
@@ -6,53 +8,68 @@ interface BCVResult {
   actualizacion: string;
 }
 
+interface DolarApiItem {
+  fuente: string;
+  moneda?: string;
+  promedio?: number;
+  venta?: number;
+  fechaActualizacion?: string;
+}
+
 async function fromDolarApi(): Promise<BCVResult> {
   const res = await fetch("https://ve.dolarapi.com/v1/dolares", {
-    next: { revalidate: 1800 },
+    cache: "no-store",
   });
-  if (!res.ok) throw new Error("dolarapi failed");
-  const data = await res.json();
-  const bcv = (data as { fuente: string; promedio?: number; venta?: number; fechaActualizacion?: string }[])
-    .find((d) => d.fuente === "BCV");
-  if (!bcv) throw new Error("BCV not found in dolarapi");
+  if (!res.ok) throw new Error(`dolarapi HTTP ${res.status}`);
+  const data = await res.json() as DolarApiItem[];
+
+  // La API devuelve fuente "oficial" (no "BCV") para la tasa del BCV
+  const oficial = data.find(
+    (d) => d.fuente === "oficial" || d.fuente === "BCV"
+  );
+  if (!oficial) throw new Error("Tasa oficial no encontrada en dolarapi");
+
+  const tasa = oficial.promedio ?? oficial.venta ?? 0;
+  if (!tasa) throw new Error("Tasa es 0 o nula");
+
   return {
-    tasa: bcv.promedio ?? bcv.venta ?? 0,
+    tasa,
     fuente: "BCV oficial",
-    actualizacion: bcv.fechaActualizacion ?? new Date().toISOString(),
+    actualizacion: oficial.fechaActualizacion ?? new Date().toISOString(),
   };
 }
 
-async function fromPydolarve(): Promise<BCVResult> {
-  const res = await fetch(
-    "https://pydolarve.org/api/v1/dollar?monitor=bcv&format_date=default",
-    { next: { revalidate: 1800 } }
-  );
-  if (!res.ok) throw new Error("pydolarve failed");
-  const data = await res.json() as { monitor?: { price?: number; last_update?: string } };
-  const price = data?.monitor?.price;
-  if (!price) throw new Error("price not found in pydolarve");
+async function fromDolarApiV2(): Promise<BCVResult> {
+  // Endpoint alternativo: moneda individual
+  const res = await fetch("https://ve.dolarapi.com/v1/dolares/oficial", {
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`dolarapi/oficial HTTP ${res.status}`);
+  const data = await res.json() as DolarApiItem;
+  const tasa = data.promedio ?? data.venta ?? 0;
+  if (!tasa) throw new Error("Tasa es 0 en dolarapi/oficial");
   return {
-    tasa: price,
+    tasa,
     fuente: "BCV oficial",
-    actualizacion: data?.monitor?.last_update ?? new Date().toISOString(),
+    actualizacion: data.fechaActualizacion ?? new Date().toISOString(),
   };
 }
 
 export async function GET() {
-  // Intentar fuente primaria
+  // Fuente primaria: listado completo
   try {
     const result = await fromDolarApi();
     return Response.json(result);
-  } catch (_) {
-    // fuente primaria falló, continuar
+  } catch (e) {
+    console.warn("fromDolarApi falló:", e);
   }
 
-  // Fuente secundaria
+  // Fuente secundaria: endpoint directo /oficial
   try {
-    const result = await fromPydolarve();
+    const result = await fromDolarApiV2();
     return Response.json(result);
-  } catch (_) {
-    // ambas fuentes fallaron
+  } catch (e) {
+    console.warn("fromDolarApiV2 falló:", e);
   }
 
   return Response.json(
