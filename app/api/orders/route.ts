@@ -15,15 +15,19 @@ async function appendToSheet(row: (string | number)[]) {
 
   const sheets = google.sheets({ version: "v4", auth });
 
-  const meta = await sheets.spreadsheets.values.get({
+  // Get real tab name (avoids hardcoding)
+  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+  const tabName = spreadsheet.data.sheets?.[0]?.properties?.title ?? "Hoja1";
+
+  const header = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: "Pedidos!A1:A1",
+    range: `${tabName}!A1:A1`,
   });
 
-  if (!meta.data.values?.length) {
+  if (!header.data.values?.length) {
     await sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
-      range: "Pedidos!A1",
+      range: `${tabName}!A1`,
       valueInputOption: "USER_ENTERED",
       requestBody: {
         values: [[
@@ -38,7 +42,7 @@ async function appendToSheet(row: (string | number)[]) {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID,
-    range: "Pedidos!A1",
+    range: `${tabName}!A1`,
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [row] },
   });
