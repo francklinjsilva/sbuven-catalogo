@@ -1,6 +1,7 @@
 "use client";
 
-import { ShoppingCart, BookOpen, Phone } from "lucide-react";
+import Link from "next/link";
+import { ShoppingCart, BookOpen, Phone, HelpCircle } from "lucide-react";
 import { useCart } from "./CartProvider";
 
 interface HeaderProps {
@@ -36,6 +37,15 @@ export function Header({ searchQuery, onSearchChange }: HeaderProps) {
               className="w-full px-4 py-2 rounded-lg text-gray-800 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
             />
           </div>
+
+          {/* Cómo comprar */}
+          <Link
+            href="/como-comprar"
+            className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-blue-200 hover:text-white border border-white/20 hover:border-white/40 px-3 py-1.5 rounded-lg transition-colors shrink-0"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            <span>Cómo comprar</span>
+          </Link>
 
           {/* Contact */}
           <a
