@@ -27,6 +27,20 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // ── Protección /crm/* ─────────────────────────────────────────────────────
+  if (pathname.startsWith("/crm")) {
+    const token = request.cookies.get("sbuven_admin")?.value;
+    const expected = await computeToken(
+      process.env.ADMIN_PASSWORD ?? "sbuven2025",
+      "sbuven-salt-2025"
+    );
+    if (token !== expected) {
+      const url = new URL("/admin/login", request.url);
+      url.searchParams.set("from", pathname);
+      return NextResponse.redirect(url);
+    }
+  }
+
   // ── Protección /ventas/* ──────────────────────────────────────────────────
   if (pathname.startsWith("/ventas") && !pathname.startsWith("/ventas/login")) {
     const token = request.cookies.get("sbuven_ventas")?.value;
@@ -45,5 +59,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/ventas/:path*"],
+  matcher: ["/admin/:path*", "/ventas/:path*", "/crm/:path*"],
 };
