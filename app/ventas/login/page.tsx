@@ -11,18 +11,24 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState("");
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true); setError("");
-    const res = await fetch("/api/ventas/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
-    if (res.ok) { router.push(from); }
-    else { const d = await res.json(); setError(d.error ?? "Error"); setLoading(false); }
+    try {
+      const res = await fetch("/api/ventas/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) { setRedirecting(true); router.push(from); }
+      else { const d = await res.json(); setError(d.error ?? "Contraseña incorrecta"); setLoading(false); }
+    } catch {
+      setError("Error de conexión. Intenta de nuevo.");
+      setLoading(false);
+    }
   }
 
   return (
@@ -51,7 +57,7 @@ function LoginForm() {
           {error && <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">{error}</div>}
           <button type="submit" disabled={loading || !password}
             className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white font-semibold py-3 rounded-lg transition-colors">
-            {loading ? "Verificando…" : "Ingresar"}
+            {redirecting ? "Accediendo…" : loading ? "Verificando…" : "Ingresar"}
           </button>
         </form>
         <p className="text-center text-xs text-gray-400 mt-6">Solo para el equipo de ventas SBUVEN</p>

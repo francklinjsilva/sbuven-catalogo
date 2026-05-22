@@ -13,6 +13,7 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState("");
 
   async function handleSubmit(e: FormEvent) {
@@ -20,17 +21,23 @@ function LoginForm() {
     setLoading(true);
     setError("");
 
-    const res = await fetch("/api/admin/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
+    try {
+      const res = await fetch("/api/admin/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
 
-    if (res.ok) {
-      router.push(from);
-    } else {
-      const data = await res.json();
-      setError(data.error ?? "Error al iniciar sesión");
+      if (res.ok) {
+        setRedirecting(true);
+        router.push(from);
+      } else {
+        const data = await res.json();
+        setError(data.error ?? "Contraseña incorrecta");
+        setLoading(false);
+      }
+    } catch {
+      setError("Error de conexión. Intenta de nuevo.");
       setLoading(false);
     }
   }
@@ -83,7 +90,7 @@ function LoginForm() {
             disabled={loading || !password}
             className="w-full bg-[#1e3a8a] hover:bg-[#1e40af] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors"
           >
-            {loading ? "Verificando…" : "Ingresar al panel"}
+            {redirecting ? "Accediendo al panel…" : loading ? "Verificando…" : "Ingresar al panel"}
           </button>
         </form>
 
