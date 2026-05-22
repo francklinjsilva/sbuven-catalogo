@@ -12,6 +12,12 @@ async function computeToken(password: string, salt: string): Promise<string> {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const hostname = request.headers.get("host") ?? "";
+
+  // ── Hub subdomain → rewrite raíz a /hub ───────────────────────────────────
+  if (hostname === "hub.sociedadesbiblicas.org.ve" && pathname === "/") {
+    return NextResponse.rewrite(new URL("/hub", request.url));
+  }
 
   // ── Protección /admin/* ────────────────────────────────────────────────────
   if (pathname.startsWith("/admin") && !pathname.startsWith("/admin/login")) {
@@ -59,5 +65,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/ventas/:path*", "/crm/:path*"],
+  matcher: ["/", "/admin/:path*", "/ventas/:path*", "/crm/:path*"],
 };
