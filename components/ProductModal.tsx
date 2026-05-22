@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import { cleanDescription } from "@/lib/clean-description";
 import {
   X,
   ShoppingCart,
@@ -225,14 +226,13 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
 
             {/* Description */}
             {product.descripcion && (
-              <div className="text-sm text-gray-600 leading-relaxed max-h-32 overflow-y-auto scrollbar-thin">
-                {product.descripcion
+              <div className="text-sm text-gray-600 leading-relaxed max-h-40 overflow-y-auto scrollbar-thin">
+                {cleanDescription(product.descripcion)
                   .split("\n")
-                  .filter((l) => l.trim() && l.trim() !== "\\n")
-                  .slice(0, 8)
+                  .filter((l) => l.trim())
                   .map((line, i) => (
-                    <p key={i} className="mb-1">
-                      {line.replace(/\\n/g, "").trim()}
+                    <p key={i} className="mb-1.5">
+                      {line}
                     </p>
                   ))}
               </div>

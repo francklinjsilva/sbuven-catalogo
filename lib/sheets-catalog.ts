@@ -17,21 +17,63 @@ const COLUMNS = [
   "etiquetas","peso",
 ];
 
-function rowToProduct(values: string[]): Product | null {
+// Añade activo:true a los productos del JSON estático (que no tienen ese campo)
+const staticProductsWithActivo: Product[] = (staticProducts as unknown[]).map((p) => ({
+  ...(p as object),
+  activo: true,
+})) as Product[];
+
+// Build lookup map from static JSON by id and sku for description fallback
+const staticById = new Map<string, (typeof staticProducts)[number]>();
+const staticBySku = new Map<string, (typeof staticProducts)[number]>();
+for (const p of staticProducts) {
+  if (p.id) staticById.set(p.id, p);
+  if (p.sku) staticBySku.set(p.sku, p);
+}
+
+function rowToProduct(values: unknown[]): Product | null {
   if (!values[0]) return null;
-  const get = (i: number) => values[i] ?? "";
-  const num = (i: number) => parseFloat(get(i)) || 0;
-  const bool = (i: number) => get(i).toLowerCase() === "true";
+  // Con UNFORMATTED_VALUE, los valores pueden ser number, boolean o string
+  const get = (i: number): string => {
+    const v = values[i];
+    if (v === null || v === undefined) return "";
+    return String(v);
+  };
+  const num = (i: number) => {
+    const v = values[i];
+    if (typeof v === "number") return v;
+    return parseFloat(String(v ?? "")) || 0;
+  };
+  const bool = (i: number) => {
+    const v = values[i];
+    if (typeof v === "boolean") return v;
+    return String(v ?? "").toLowerCase() === "true";
+  };
   const list = (i: number) =>
     get(i) ? get(i).split("|").map((s) => s.trim()).filter(Boolean) : [];
 
+  const id = get(0);
+  const sku = get(1);
+
+  // Description from Sheets column 4; if empty, fall back to static JSON
+  const sheetDesc = get(4).trim();
+  const staticRef = staticById.get(id) ?? staticBySku.get(sku);
+  const descripcion = sheetDesc || staticRef?.descripcion || staticRef?.descripcionCorta || "";
+  const descripcionCorta = sheetDesc || staticRef?.descripcionCorta || "";
+
+  // activo: columna Y (índice 24). Si la celda está vacía → true por defecto
+  const activoVal = values[24];
+  const activo = activoVal === undefined || activoVal === null || activoVal === ""
+    ? true
+    : bool(24);
+
   return {
-    id: get(0),
-    sku: get(1),
+    id,
+    sku,
     isbn: get(2),
     nombre: get(3),
-    descripcionCorta: get(4),
-    descripcion: get(4), // descripcionCorta doubles as descripcion in sheet
+    descripcionCorta,
+    descripcion,
     precio: num(5),
     precioRebajado: num(6),
     precioFinal: num(7),
@@ -52,13 +94,14 @@ function rowToProduct(values: string[]): Product | null {
     etiquetas: list(22),
     peso: num(23),
     dimensiones: [],
+    activo,
   };
 }
 
 export async function getAllProductsFromSheets(): Promise<Product[]> {
   if (!CATALOG_SHEET_ID || !SA_KEY_JSON) {
     // Fall back to static JSON while sheets isn't configured
-    return staticProducts as Product[];
+    return staticProductsWithActivo;
   }
 
   try {
@@ -73,19 +116,29 @@ export async function getAllProductsFromSheets(): Promise<Product[]> {
 
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: CATALOG_SHEET_ID,
-      range: "A2:X", // first sheet, skip header row
+      range: "A2:Y", // A=id … X=peso, Y=activo
+      valueRenderOption: "UNFORMATTED_VALUE", // números crudos, sin formato de celda
     });
 
     const rows = res.data.values ?? [];
-    if (rows.length === 0) return staticProducts as Product[];
+    if (rows.length === 0) return staticProductsWithActivo;
 
     const products = rows
-      .map((r) => rowToProduct(r as string[]))
+      .map((r) => rowToProduct(r as unknown[]))
       .filter((p): p is Product => p !== null && Boolean(p.nombre));
 
-    return products.length > 0 ? products : (staticProducts as Product[]);
+    return products.length > 0 ? products : (staticProductsWithActivo);
   } catch (err) {
     console.error("Sheets catalog fetch failed, using static data:", err);
-    return staticProducts as Product[];
+    return staticProductsWithActivo;
   }
+}
+
+/**
+ * Versión para el catálogo público: excluye productos con activo === false.
+ * Los productos sin columna activo (undefined) se tratan como activos.
+ */
+export async function getActiveProductsForCatalog(): Promise<Product[]> {
+  const all = await getAllProductsFromSheets();
+  return all.filter((p) => p.activo !== false);
 }

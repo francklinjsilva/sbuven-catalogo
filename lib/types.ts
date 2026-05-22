@@ -25,6 +25,18 @@ export interface Product {
   autor: string;
   editorial: string;
   paginas: number;
+  activo?: boolean; // false = oculto del catálogo público; undefined = activo
+}
+
+// ── Combos ───────────────────────────────────────────────────────────────────
+export interface Combo {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  precio: number;
+  imagen: string;
+  productoIds: string[]; // IDs de productos incluidos
+  activo: boolean;
 }
 
 export interface CartItem {

@@ -1,4 +1,4 @@
-import { getAllProductsFromSheets } from "@/lib/sheets-catalog";
+import { getActiveProductsForCatalog } from "@/lib/sheets-catalog";
 import { getMainCategories } from "@/lib/products";
 import { Catalog } from "@/components/Catalog";
 
@@ -6,7 +6,7 @@ import { Catalog } from "@/components/Catalog";
 export const revalidate = 3600;
 
 export default async function HomePage() {
-  const products = await getAllProductsFromSheets();
+  const products = await getActiveProductsForCatalog();
   const categories = getMainCategories();
   return <Catalog products={products} categories={categories} />;
 }
