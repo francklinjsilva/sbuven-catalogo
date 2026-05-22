@@ -6,10 +6,11 @@ import type { Order, OrderStatus } from "@/lib/orders-types";
 import {
   STATUS_LABELS, STATUS_COLORS, SHIPPING_LABELS, PAYMENT_LABELS, getStatusFlow,
 } from "@/lib/orders-types";
+import Link from "next/link";
 import {
   ShoppingBag, LogOut, Search, Filter, ChevronDown, ChevronUp,
   Package, Clock, CheckCircle, Truck, MapPin, RefreshCw, X,
-  Phone, Mail, CreditCard, ExternalLink,
+  Phone, Mail, CreditCard, ExternalLink, HelpCircle,
 } from "lucide-react";
 
 interface Props { orders: Order[] }
@@ -280,6 +281,10 @@ export function SalesDashboard({ orders: initialOrders }: Props) {
             </div>
           </div>
           <div className="flex-1" />
+          <Link href="/ventas/manual" className="hidden sm:flex items-center gap-1.5 text-xs text-blue-200 hover:text-white transition-colors">
+            <HelpCircle className="w-4 h-4" />
+            Manual
+          </Link>
           <button onClick={handleLogout} disabled={loggingOut}
             className="flex items-center gap-1.5 text-xs text-blue-200 hover:text-white transition-colors">
             <LogOut className="w-4 h-4" />
